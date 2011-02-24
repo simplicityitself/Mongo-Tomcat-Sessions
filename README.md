@@ -30,3 +30,6 @@ The following parameters are available on the Manager :-
 <tr><td>port</td><td>The database port to connect to. The same port will be used for each database host. The default is 27017</td></tr>
 <tr><td>database</td><td>The database used to store sessions in, the default is 'sessions'</td></tr>
 </table>
+
+
+Put the mongo-store jar and the mongo java driver (I've tested with 2.3) into the tomcat lib directory and you're good to go.
