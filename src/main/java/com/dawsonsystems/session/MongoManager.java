@@ -134,7 +134,7 @@ public class MongoManager extends ManagerBase implements Lifecycle {
         try {
             log.fine("Loading session " + id + " from Mongo");
             BasicDBObject query = new BasicDBObject();
-            query.put("_id", new ObjectId(id));
+            query.put("_id", id);
 
             DBObject dbsession = getCollection().findOne(query);
 
@@ -196,12 +196,12 @@ public class MongoManager extends ManagerBase implements Lifecycle {
             oos = null;
 
             BasicDBObject dbsession = new BasicDBObject();
-            dbsession.put("_id", new ObjectId(standardsession.getIdInternal()));
+            dbsession.put("_id", standardsession.getIdInternal());
             dbsession.put("data", bos.toByteArray());
             dbsession.put("lastmodified", System.currentTimeMillis());
 
             BasicDBObject query = new BasicDBObject();
-            query.put("_id", new ObjectId(standardsession.getIdInternal()));
+            query.put("_id", standardsession.getIdInternal());
             getCollection().update(query, dbsession, true, false);
             log.fine("Updated session with id " + session.getIdInternal());
             currentSession.remove();
@@ -243,15 +243,11 @@ public class MongoManager extends ManagerBase implements Lifecycle {
             db = mongo.getDB(getDatabase());
             db.slaveOk();
             getCollection().ensureIndex(new BasicDBObject("lastmodified", 1));
-            log.info("Connected to Mongo " + host + " for session storage, slaveOk, 30 minute session live time");
+            log.info("Connected to Mongo " + host + "/" + database + " for session storage, slaveOk, " + (getMaxInactiveInterval() * 1000) + " session live time");
         } catch (IOException e) {
             e.printStackTrace();
             throw new LifecycleException("Error Connecting to Mongo", e);
         }
-    }
-
-    protected String generateSessionId() {
-        return new ObjectId().toString();
     }
 
 }
