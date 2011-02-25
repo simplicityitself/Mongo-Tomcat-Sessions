@@ -34,12 +34,12 @@ public class MongoSessionTrackerValve extends ValveBase {
         final Session session = request.getSessionInternal( false );
             
         if ( session != null ) {
-            log.info ("Request with session completed, saving session " + session.getIdInternal());
+            log.fine ("Request with session completed, saving session " + session.getIdInternal());
             if (session.getSession() != null) {
-                log.info ("HTTP Session present, saving " + session.getIdInternal());
+                log.fine ("HTTP Session present, saving " + session.getIdInternal());
                 manager.save(session);
             } else {
-                log.info ("No HTTP Session present, Not saving " + session.getIdInternal());
+                log.fine ("No HTTP Session present, Not saving " + session.getIdInternal());
             }
         }
     }
