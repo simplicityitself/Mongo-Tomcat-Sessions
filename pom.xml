@@ -6,7 +6,7 @@
 
     <groupId>com.dawsonsystems</groupId>
     <artifactId>mongo-store</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <licenses>
         <license>
             <name>Apache 2</name>
@@ -14,6 +14,11 @@
         </license>
     </licenses>
     <dependencies>
+        <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy-all</artifactId>
+            <version>1.7.5</version>
+        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -47,9 +52,78 @@
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+          <groupId>com.esotericsoftware</groupId>
+          <artifactId>kryo</artifactId>
+          <version>1.04</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <version>2.5.6</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.8.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.dawsonsystems</groupId>
+            <artifactId>serial</artifactId>
+            <version>0.8</version>
+        </dependency>
     </dependencies>
+
     <build>
-		<plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.codehaus.gmaven</groupId>
+                    <artifactId>gmaven-plugin</artifactId>
+                    <version>${gmaven.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>generateStubs</goal>
+                                <goal>compile</goal>
+                                <goal>generateTestStubs</goal>
+                                <goal>testCompile</goal>
+                            </goals>
+                            <configuration>
+                                <providerSelection>1.7</providerSelection>
+                            </configuration>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.gmaven.runtime</groupId>
+                            <artifactId>gmaven-runtime-1.7</artifactId>
+                            <version>${gmaven.version}</version>
+                            <exclusions>
+                                <exclusion>
+                                    <!--
+                                 gmaven runtime has a dependency on
+                                 groovy-all v1.6 but we want 1.7.0
+                                    -->
+                                    <groupId>org.codehaus.groovy</groupId>
+                                    <artifactId>groovy-all</artifactId>
+                                </exclusion>
+                            </exclusions>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.codehaus.groovy</groupId>
+                            <artifactId>groovy-all</artifactId>
+                            <version>${groovy.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>gmaven-plugin</artifactId>
+            </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -70,4 +144,14 @@
 	        <url>https://github.com/dawsonsystems/mavenrepo/raw/master/releases</url>
 	    </snapshotRepository>
 	</distributionManagement>
+    <repositories>
+      <repository>
+        <id>wordrak</id>
+        <url>http://wordrak.github.com/repo</url>
+      </repository>
+    </repositories>    
+    <properties>
+        <gmaven.version>1.2</gmaven.version>
+        <groovy.version>1.7.0</groovy.version>
+    </properties>
 </project>
