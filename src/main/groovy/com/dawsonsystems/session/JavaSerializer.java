@@ -21,7 +21,7 @@ public class JavaSerializer implements Serializer {
     StandardSession standardSession = (StandardSession) session;
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
-
+    oos.writeLong(standardSession.getCreationTime());
     standardSession.writeObjectData(oos);
 
     oos.close();
@@ -37,6 +37,7 @@ public class JavaSerializer implements Serializer {
     BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(data));
 
     ObjectInputStream ois = new CustomObjectInputStream(bis, loader);
+    standardSession.setCreationTime(ois.readLong());
     standardSession.readObjectData(ois);
 
     return session;

@@ -7,6 +7,7 @@ import org.apache.catalina.session.StandardSession;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,7 +63,16 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   public void removeLifecycleListener(LifecycleListener lifecycleListener) {
   }
 
-  public void start() throws LifecycleException {
+    @Override
+    public Session createEmptySession() {
+        Session session = super.createEmptySession();
+
+        currentSession.set((StandardSession) session);
+
+        return session;
+    }
+
+    public void start() throws LifecycleException {
     for (Valve valve : getContainer().getPipeline().getValves()) {
       if (valve instanceof MongoSessionTrackerValve) {
         trackerValve = (MongoSessionTrackerValve) valve;
@@ -148,6 +158,8 @@ public class MongoManager extends ManagerBase implements Lifecycle {
     return ret.toArray(new String[ret.size()]);
   }
 
+
+
   public Session loadSession(String id) throws IOException {
 
     StandardSession session = currentSession.get();
@@ -174,7 +186,6 @@ public class MongoManager extends ManagerBase implements Lifecycle {
         return ret;
       }
 
-
       byte[] data = (byte[]) dbsession.get("data");
 
       session = (StandardSession) createEmptySession();
@@ -183,9 +194,15 @@ public class MongoManager extends ManagerBase implements Lifecycle {
       session.setMaxInactiveInterval(getMaxInactiveInterval() * 1000);
       session.access();
       session.setValid(true);
-      session.setCreationTime(System.currentTimeMillis());
       session.setNew(false);
       serializer.deserializeInto(data, session);
+
+      if (log.isLoggable(Level.FINE)) {
+        log.fine("Session Contents [" + session.getId() + "]:");
+        for (Object name : Collections.list(session.getAttributeNames())) {
+            log.fine("  " + name);
+        }
+      }
 
       log.fine("Loaded session id " + id);
       currentSession.set(session);
@@ -194,6 +211,7 @@ public class MongoManager extends ManagerBase implements Lifecycle {
       log.severe(e.getMessage());
       throw e;
     } catch (ClassNotFoundException ex) {
+      log.log(Level.SEVERE, "Unable to deserialize session ", ex);
       throw new IOException("Unable to deserializeInto session", ex);
     }
   }
@@ -204,10 +222,17 @@ public class MongoManager extends ManagerBase implements Lifecycle {
 
       StandardSession standardsession = (StandardSession) session;
 
+      if (log.isLoggable(Level.FINE)) {
+        log.fine("Session Contents [" + session.getId() + "]:");
+        for (Object name : Collections.list(standardsession.getAttributeNames())) {
+            log.fine("  " + name);
+        }
+      }
+
       byte[] data = serializer.serializeFrom(standardsession);
 
       BasicDBObject dbsession = new BasicDBObject();
-      dbsession.put("_id", standardsession.getIdInternal());
+      dbsession.put("_id", standardsession.getId());
       dbsession.put("data", data);
       dbsession.put("lastmodified", System.currentTimeMillis());
 
@@ -215,13 +240,27 @@ public class MongoManager extends ManagerBase implements Lifecycle {
       query.put("_id", standardsession.getIdInternal());
       getCollection().update(query, dbsession, true, false);
       log.fine("Updated session with id " + session.getIdInternal());
-      currentSession.remove();
     } catch (IOException e) {
       log.severe(e.getMessage());
       e.printStackTrace();
       throw e;
+    } finally {
+      currentSession.remove();
+      log.fine("Session removed from ThreadLocal :" + session.getIdInternal());
     }
   }
+
+    public void remove(Session session) {
+        log.fine("Removing session ID : " + session.getId());
+        BasicDBObject query = new BasicDBObject();
+        query.put("_id", session.getId());
+
+        try {
+          getCollection().remove(query);
+        } catch (IOException e) {
+          log.log(Level.SEVERE, "Error removing session in Mongo Session Store", e);
+        }
+    }
 
   public void processExpires() {
     BasicDBObject query = new BasicDBObject();
@@ -265,5 +304,17 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   private void initSerializer() throws ClassNotFoundException, IllegalAccessException, InstantiationException {
     log.info("Attempting to use serializer :" + serializationStrategyClass);
     serializer = (Serializer) Class.forName(serializationStrategyClass).newInstance();
+
+    Loader loader = null;
+
+    if (container != null) {
+        loader = container.getLoader();
+    }
+    ClassLoader classLoader = null;
+
+    if (loader != null) {
+        classLoader = loader.getClassLoader();
+    }
+    serializer.setClassLoader(classLoader);
   }
 }

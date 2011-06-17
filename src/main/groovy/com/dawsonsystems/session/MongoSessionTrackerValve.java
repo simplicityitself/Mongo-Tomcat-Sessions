@@ -28,19 +28,21 @@ public class MongoSessionTrackerValve extends ValveBase {
   }
 
   private void storeSession(Request request, Response response) throws IOException {
-    if (request.getRequestedSessionId() == null) {
-      return;
-    }
     final Session session = request.getSessionInternal(false);
 
-    if (session != null && session.isValid()) {
-      log.fine("Request with session completed, saving session " + session.getIdInternal());
-      if (session.getSession() != null) {
-        log.fine("HTTP Session present, saving " + session.getIdInternal());
-        manager.save(session);
-      } else {
-        log.fine("No HTTP Session present, Not saving " + session.getIdInternal());
-      }
+    if (session != null) {
+        if (session.isValid()) {
+          log.fine("Request with session completed, saving session " + session.getId());
+          if (session.getSession() != null) {
+            log.fine("HTTP Session present, saving " + session.getId());
+            manager.save(session);
+          } else {
+            log.fine("No HTTP Session present, Not saving " + session.getId());
+          }
+        } else {
+            log.fine("HTTP Session has been invalidated, removing :" + session.getId());
+            manager.remove(session);
+        }
     }
   }
 }
