@@ -63,16 +63,46 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   public void removeLifecycleListener(LifecycleListener lifecycleListener) {
   }
 
-    @Override
-    public Session createEmptySession() {
-        Session session = super.createEmptySession();
+  @Override
+  public Session createEmptySession() {
+    MongoSession session = new MongoSession(this);
+    session.setMaxInactiveInterval(-1);
+    currentSession.set(session);
+    return session;
+  }
 
-        currentSession.set((StandardSession) session);
+  /**
+   * @deprecated
+   */
+  public org.apache.catalina.Session createSession() {
+    return createEmptySession();
+  }
 
-        return session;
+  public org.apache.catalina.Session createSession(java.lang.String sessionId) {
+    StandardSession session = (MongoSession) createEmptySession();
+
+    session.setId(sessionId);
+
+    return session;
+  }
+
+  public org.apache.catalina.Session[] findSessions() {
+    try {
+      List<Session> sessions = new ArrayList<Session>();
+      for(String sessionId : keys()) {
+        sessions.add(loadSession(sessionId));
+      }
+      return sessions.toArray(new Session[sessions.size()]);
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
     }
+  }
 
-    public void start() throws LifecycleException {
+  protected org.apache.catalina.session.StandardSession getNewSession() {
+    return (MongoSession) createEmptySession();
+  }
+
+  public void start() throws LifecycleException {
     for (Valve valve : getContainer().getPipeline().getValves()) {
       if (valve instanceof MongoSessionTrackerValve) {
         trackerValve = (MongoSessionTrackerValve) valve;
@@ -159,7 +189,6 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   }
 
 
-
   public Session loadSession(String id) throws IOException {
 
     StandardSession session = currentSession.get();
@@ -188,19 +217,20 @@ public class MongoManager extends ManagerBase implements Lifecycle {
 
       byte[] data = (byte[]) dbsession.get("data");
 
-      session = (StandardSession) createEmptySession();
+      session = (MongoSession) createEmptySession();
       session.setId(id);
       session.setManager(this);
-      session.setMaxInactiveInterval(getMaxInactiveInterval() * 1000);
+      serializer.deserializeInto(data, session);
+
+      session.setMaxInactiveInterval(-1);
       session.access();
       session.setValid(true);
       session.setNew(false);
-      serializer.deserializeInto(data, session);
 
       if (log.isLoggable(Level.FINE)) {
         log.fine("Session Contents [" + session.getId() + "]:");
         for (Object name : Collections.list(session.getAttributeNames())) {
-            log.fine("  " + name);
+          log.fine("  " + name);
         }
       }
 
@@ -220,12 +250,12 @@ public class MongoManager extends ManagerBase implements Lifecycle {
     try {
       log.fine("Saving session " + session + " into Mongo");
 
-      StandardSession standardsession = (StandardSession) session;
+      StandardSession standardsession = (MongoSession) session;
 
       if (log.isLoggable(Level.FINE)) {
         log.fine("Session Contents [" + session.getId() + "]:");
         for (Object name : Collections.list(standardsession.getAttributeNames())) {
-            log.fine("  " + name);
+          log.fine("  " + name);
         }
       }
 
@@ -250,17 +280,19 @@ public class MongoManager extends ManagerBase implements Lifecycle {
     }
   }
 
-    public void remove(Session session) {
-        log.fine("Removing session ID : " + session.getId());
-        BasicDBObject query = new BasicDBObject();
-        query.put("_id", session.getId());
+  public void remove(Session session) {
+    log.fine("Removing session ID : " + session.getId());
+    BasicDBObject query = new BasicDBObject();
+    query.put("_id", session.getId());
 
-        try {
-          getCollection().remove(query);
-        } catch (IOException e) {
-          log.log(Level.SEVERE, "Error removing session in Mongo Session Store", e);
-        }
+    try {
+      getCollection().remove(query);
+    } catch (IOException e) {
+      log.log(Level.SEVERE, "Error removing session in Mongo Session Store", e);
+    } finally {
+      currentSession.remove();
     }
+  }
 
   public void processExpires() {
     BasicDBObject query = new BasicDBObject();
@@ -308,12 +340,12 @@ public class MongoManager extends ManagerBase implements Lifecycle {
     Loader loader = null;
 
     if (container != null) {
-        loader = container.getLoader();
+      loader = container.getLoader();
     }
     ClassLoader classLoader = null;
 
     if (loader != null) {
-        classLoader = loader.getClassLoader();
+      classLoader = loader.getClassLoader();
     }
     serializer.setClassLoader(classLoader);
   }

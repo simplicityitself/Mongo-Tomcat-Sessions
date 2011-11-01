@@ -6,7 +6,7 @@
 
     <groupId>com.dawsonsystems</groupId>
     <artifactId>mongo-store</artifactId>
-    <version>1.2</version>
+    <version>1.5</version>
     <licenses>
         <license>
             <name>Apache 2</name>
@@ -66,11 +66,6 @@
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils</artifactId>
             <version>1.8.3</version>
-        </dependency>
-        <dependency>
-            <groupId>com.dawsonsystems</groupId>
-            <artifactId>serial</artifactId>
-            <version>0.8</version>
         </dependency>
     </dependencies>
 
