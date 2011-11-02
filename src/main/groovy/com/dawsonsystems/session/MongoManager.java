@@ -2,17 +2,18 @@ package com.dawsonsystems.session;
 
 import com.mongodb.*;
 import org.apache.catalina.*;
-import org.apache.catalina.session.ManagerBase;
 import org.apache.catalina.session.StandardSession;
 
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class MongoManager extends ManagerBase implements Lifecycle {
+public class MongoManager implements Manager, Lifecycle {
   private static Logger log = Logger.getLogger("MongoManager");
   protected static String host = "localhost";
   protected static int port = 27017;
@@ -27,6 +28,89 @@ public class MongoManager extends ManagerBase implements Lifecycle {
 
   //Either 'kryo' or 'java'
   private String serializationStrategyClass = "com.dawsonsystems.session.JavaSerializer";
+
+  private Container container;
+  private int maxInactiveInterval;
+
+  @Override
+  public Container getContainer() {
+    return container;
+  }
+
+  @Override
+  public void setContainer(Container container) {
+    this.container = container;
+  }
+
+  @Override
+  public boolean getDistributable() {
+    return false;
+  }
+
+  @Override
+  public void setDistributable(boolean b) {
+
+  }
+
+  @Override
+  public String getInfo() {
+    return "Mongo Session Manager";
+  }
+
+  @Override
+  public int getMaxInactiveInterval() {
+    return maxInactiveInterval;
+  }
+
+  @Override
+  public void setMaxInactiveInterval(int i) {
+    maxInactiveInterval = i;
+  }
+
+  @Override
+  public int getSessionIdLength() {
+    return 37;
+  }
+
+  @Override
+  public void setSessionIdLength(int i) {
+
+  }
+
+  @Override
+  public int getSessionCounter() {
+    return 10000000;
+  }
+
+  @Override
+  public void setSessionCounter(int i) {
+
+  }
+
+  @Override
+  public int getMaxActive() {
+    return 1000000;
+  }
+
+  @Override
+  public void setMaxActive(int i) {
+
+  }
+
+  @Override
+  public int getActiveSessions() {
+    return 1000000;
+  }
+
+  @Override
+  public int getExpiredSessions() {
+    return 0;
+  }
+
+  @Override
+  public void setExpiredSessions(int i) {
+
+  }
 
   public int getRejectedSessions() {
     return 0;
@@ -47,10 +131,35 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   public void setRejectedSessions(int i) {
   }
 
+  @Override
+  public int getSessionMaxAliveTime() {
+    return maxInactiveInterval;
+  }
+
+  @Override
+  public void setSessionMaxAliveTime(int i) {
+
+  }
+
+  @Override
+  public int getSessionAverageAliveTime() {
+    return 0;
+  }
+
+  @Override
+  public void setSessionAverageAliveTime(int i) {
+
+  }
+
   public void load() throws ClassNotFoundException, IOException {
   }
 
   public void unload() throws IOException {
+  }
+
+  @Override
+  public void backgroundProcess() {
+    processExpires();
   }
 
   public void addLifecycleListener(LifecycleListener lifecycleListener) {
@@ -64,10 +173,34 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   }
 
   @Override
+  public void add(Session session) {
+    try {
+      save(session);
+    } catch (IOException ex) {
+      log.log(Level.SEVERE, "Error adding new session", ex);
+    }
+  }
+
+  @Override
+  public void addPropertyChangeListener(PropertyChangeListener propertyChangeListener) {
+    //To change body of implemented methods use File | Settings | File Templates.
+  }
+
+  @Override
+  public void changeSessionId(Session session) {
+    session.setId(UUID.randomUUID().toString());
+  }
+
+  @Override
   public Session createEmptySession() {
     MongoSession session = new MongoSession(this);
-    session.setMaxInactiveInterval(-1);
+    session.setId(UUID.randomUUID().toString());
+    session.setMaxInactiveInterval(maxInactiveInterval);
+    session.setValid(true);
+    session.setCreationTime(System.currentTimeMillis());
+    session.setNew(true);
     currentSession.set(session);
+    log.fine("Created new empty session " + session.getIdInternal());
     return session;
   }
 
@@ -81,7 +214,10 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   public org.apache.catalina.Session createSession(java.lang.String sessionId) {
     StandardSession session = (MongoSession) createEmptySession();
 
-    session.setId(sessionId);
+    log.fine("Created session with id " + session.getIdInternal() + " ( " + sessionId + ")");
+    if (sessionId != null) {
+      session.setId(sessionId);
+    }
 
     return session;
   }
@@ -99,6 +235,7 @@ public class MongoManager extends ManagerBase implements Lifecycle {
   }
 
   protected org.apache.catalina.session.StandardSession getNewSession() {
+    log.fine("getNewSession()");
     return (MongoSession) createEmptySession();
   }
 
@@ -190,6 +327,10 @@ public class MongoManager extends ManagerBase implements Lifecycle {
 
 
   public Session loadSession(String id) throws IOException {
+
+    if (id == null || id.length() == 0) {
+      return createEmptySession();
+    }
 
     StandardSession session = currentSession.get();
 
@@ -292,6 +433,11 @@ public class MongoManager extends ManagerBase implements Lifecycle {
     } finally {
       currentSession.remove();
     }
+  }
+
+  @Override
+  public void removePropertyChangeListener(PropertyChangeListener propertyChangeListener) {
+    //To change body of implemented methods use File | Settings | File Templates.
   }
 
   public void processExpires() {
